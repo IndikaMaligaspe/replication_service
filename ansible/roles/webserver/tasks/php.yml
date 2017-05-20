@@ -1,0 +1,4 @@
+---
+  - name: install php5
+    apt: name=php5 state=present
+    

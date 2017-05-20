@@ -1,0 +1,25 @@
+---
+  - name: install redis server ,  redis web UI, apache and PHP5 and setup tools
+    apt: name=apache2 state=present
+    apt: name=php5 state=present
+    apt: name=redis-server  state=present
+    # apt: name=php-redis state=present
+
+  - name: Change redis.cnf settings server-id
+    lineinfile:
+      dest: /etc/redis/redis.conf
+      line: '{{ item.value }}'
+    with_items:
+        - value: 'maxmemory 128mb'
+        - value: 'maxmemory-policy allkeys-lru'
+    when: profile == "slave"
+
+  - name: set up redis as a service
+    service:
+      name: redis-server
+      state: restarted
+
+  - name: set up redis at boot up
+    service:
+      name: redis-server
+      enabled: yes

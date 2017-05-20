@@ -1,0 +1,36 @@
+---
+  - name: install python and setup tools
+    apt: name=python2.7  state=present
+    apt: name=python-pip state=present
+
+  - name: install python binlog replicator
+    pip: name=mysql-replication state=present
+    when: profile == "master"
+
+  - name: Change my.cnf settings server-id
+    lineinfile:
+      dest: /etc/mysql/my.cnf
+      regexp: '^{{ item.property }}'
+      line: '{{ item.value }}'
+    with_items:
+      - property: 'bind-address'
+        value: '#bind-address = 127.0.0.1'
+      - property: '#server-id'
+        value: 'server-id = 1'
+      - property: '#log_bin'
+        value: 'log_bin  = /var/log/mysql/mysql-bin.log'
+    when: profile == "master"
+
+  - name: add a new line to my.cnf
+    lineinfile:
+       dest: /etc/mysql/my.cnf
+       insertafter: '^log_bin'
+       line: 'binlog-format    = row'
+       state: present
+    when: profile == "master"
+
+  - name: restart mysql
+    service:
+      name: mysql
+      state: restarted
+    when: profile == "master"

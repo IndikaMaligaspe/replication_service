@@ -1,0 +1,14 @@
+---
+  - hosts: slave
+    sudo: true
+    vars:
+      document_root: /vagrant
+      profile: slave
+
+    pre_tasks:
+      - name: update apt cache
+        apt: update_cache=yes
+      # when: update_cache
+    roles:
+      - database
+      - cache

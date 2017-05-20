@@ -1,0 +1,15 @@
+---
+  - hosts: all
+    sudo: true
+    remote_user: vagrant
+    # ask_pass: True
+    vars:
+      document_root: /vagrant
+      profile: master
+
+    pre_tasks:
+      - name: update apt cache
+        apt: update_cache=yes
+      # when: update_cache  
+    roles:
+      - database
