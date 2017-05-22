@@ -23,31 +23,40 @@ from pymysqlreplication.row_event import (
 MYSQL_SETTING = {
     "host": "192.168.50.4",
     "port": 3306,
-    "user": "root",
-    "passwd": ""
+    "user": "indika",
+    "passwd": "123456"
 }
 
 def main():
-    r = redis.Redis(host='192.168.50.4', port='6379',db=0)
+    r = redis.Redis(host='192.168.50.5', port='6379',db=0)
 
     stream = BinLogStreamReader(
         connection_settings=MYSQL_SETTING,
+        # resume_stream=True,
         server_id=3,
         only_events=[DeleteRowsEvent, WriteRowsEvent, UpdateRowsEvent])
-
+    # stream.starting_binlog_pos = 1263
     for binlogevent in stream:
         prefix = "%s:%s" %(binlogevent.schema,binlogevent.table)
 
         for row in binlogevent.rows:
-            if isinstance(binlogevent,DeleteRowsEvent):
-                vals = row["values"]
-                r.delet(prefix+str(vals["id"]))
-            elif isinstance(binlogevent,UpdateRowsEvent):
-                vals = row["after_values"]
-                r.hmset(prefix+str(vals["id"]),vals)
-            elif isinstance(binlogevent,WriteRowsEvent):
-                vals = row["values"]
-                r.hmset(prefix+str(vals["id"]),vals)
+            if stream.log_pos >= 1263:
+                if isinstance(binlogevent,DeleteRowsEvent):
+                    vals = row["values"]
+                    # query = row["Query"]
+                    print "delete values = %s , prefix = %s , query = (%s)" %(vals , prefix,row)
+                    r.delete(prefix+str(vals))
+                elif isinstance(binlogevent,UpdateRowsEvent):
+                    vals = row["after_values"]
+                    # query = row["Query"]
+                    print "update values = %s , prefix = %s , query = (%s)" %(vals , prefix,row)
+                    r.hmset(prefix+str(vals),vals)
+                elif isinstance(binlogevent,WriteRowsEvent):
+                    vals = row["values"]
+                    # query = row["Query"]
+                    print "insert values = %s , prefix = %s , query = (%s)" %(vals , prefix,row)
+                    r.hmset(prefix+str(vals),vals)
+    print "log position = %s" %(stream.log_pos)
     stream.close()
 
 if __name__ == "__main__":

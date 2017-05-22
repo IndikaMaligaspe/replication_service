@@ -13,6 +13,15 @@
         - value: 'maxmemory 128mb'
         - value: 'maxmemory-policy allkeys-lru'
     when: profile == "slave"
+  - name: comment bind-address
+    lineinfile:
+      dest: /etc/redis/redis.conf
+      regexp: '^{{ item.property }}'
+      line: '{{ item.value }}'
+    with_items:
+      - property: 'bind'
+        value: '#bind = 127.0.0.1'
+    when: profile == "slave"
 
   - name: set up redis as a service
     service:
