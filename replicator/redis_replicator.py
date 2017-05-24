@@ -48,11 +48,9 @@ def main():
                     where = []
                     vals = row["values"]
                     where = prepare_where_clause(vals)
-                    # query = row["Query"]
                     SQL = 'delete from `'+schema+'`.`'+table+'` where ' + " and ".join(where)
                     print 'Delete SQL : '+SQL
-                    # print "delete values = %s , prefix = %s , query = (%s), columns  = (%s)" %(vals , prefix,row,columns)
-                    r.delete(prefix+str(vals))
+                    r.set(name = prefix+"delete - ", value = SQL)
                 elif isinstance(binlogevent,UpdateRowsEvent):
                     where = []
                     update = []
@@ -64,17 +62,13 @@ def main():
 
                     SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + " and ".join(where)
                     print 'Update SQL : '+SQL
-                    # print "update values = %s , prefix = %s , query = (%s) , columns  = (%s)" %(vals , prefix,row ,columns)
-                    r.hmset(prefix+str(vals),vals)
+                    r.set(name = prefix+"update - ", value = SQL)
                 elif isinstance(binlogevent,WriteRowsEvent):
                     vals = row["values"]
-                    # query = row["Query"]
                     insert = pepare_insert_values(vals)
                     SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
                     print 'Insert SQL : '+SQL
-
-                    # print "insert values = %s , prefix = %s , query = (%s) , columns  = (%s)" %(vals , prefix,row ,columns)
-                    r.hmset(prefix+str(vals),vals)
+                    r.set(name = prefix+"insert - ", value = SQL)
     print "log position = %s" %(stream.log_pos)
     stream.close()
 
