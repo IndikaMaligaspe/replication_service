@@ -51,25 +51,29 @@ def main():
                     # query = row["Query"]
                     SQL = 'delete from `'+schema+'`.`'+table+'` where ' + "and".join(where)
                     print 'Delete SQL : '+SQL
-                    print "delete values = %s , prefix = %s , query = (%s), columns  = (%s)" %(vals , prefix,row,columns)
+                    # print "delete values = %s , prefix = %s , query = (%s), columns  = (%s)" %(vals , prefix,row,columns)
                     r.delete(prefix+str(vals))
                 elif isinstance(binlogevent,UpdateRowsEvent):
                     where = []
                     update = []
-                    set_vals = row["before_values"]
-                    where_vals = row["after_values"]
+                    set_vals = row["after_values"]
+                    where_vals = row["before_values"]
 
                     update = pepare_update_clause(set_vals)
                     where = prepare_where_clause(where_vals)
 
                     SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + "and".join(where)
                     print 'Update SQL : '+SQL
-                    print "update values = %s , prefix = %s , query = (%s) , columns  = (%s)" %(vals , prefix,row ,columns)
+                    # print "update values = %s , prefix = %s , query = (%s) , columns  = (%s)" %(vals , prefix,row ,columns)
                     r.hmset(prefix+str(vals),vals)
                 elif isinstance(binlogevent,WriteRowsEvent):
                     vals = row["values"]
                     # query = row["Query"]
-                    print "insert values = %s , prefix = %s , query = (%s) , columns  = (%s)" %(vals , prefix,row ,columns)
+                    insert = pepare_insert_values(vals)
+                    SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
+                    print 'Insert SQL : '+SQL
+
+                    # print "insert values = %s , prefix = %s , query = (%s) , columns  = (%s)" %(vals , prefix,row ,columns)
                     r.hmset(prefix+str(vals),vals)
     print "log position = %s" %(stream.log_pos)
     stream.close()
@@ -100,6 +104,26 @@ def pepare_update_clause(set_vals):
 
 
     return update
+
+def pepare_insert_values(set_vals):
+    insert = {}
+    insert_cols = []
+    insert_vals = []
+    for keys in set_vals:
+        column = set_vals[keys]
+        if type(column) == int:
+          insert_cols.append(keys)
+          insert_vals.append(str(column))
+        elif type(column) == bool:
+          insert_cols.append(keys)
+          insert_vals.append(str(column))
+        else:
+          insert_cols.append(keys)
+          insert_vals.append('\''+str(column)+'\'')
+
+        insert['cols'] = insert_cols
+        insert['vals'] = insert_vals
+    return insert
 
 if __name__ == "__main__":
     main()
