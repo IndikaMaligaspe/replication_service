@@ -49,7 +49,7 @@ def main():
                     vals = row["values"]
                     where = prepare_where_clause(vals)
                     # query = row["Query"]
-                    SQL = 'delete from `'+schema+'`.`'+table+'` where ' + "and".join(where)
+                    SQL = 'delete from `'+schema+'`.`'+table+'` where ' + " and ".join(where)
                     print 'Delete SQL : '+SQL
                     # print "delete values = %s , prefix = %s , query = (%s), columns  = (%s)" %(vals , prefix,row,columns)
                     r.delete(prefix+str(vals))
@@ -62,7 +62,7 @@ def main():
                     update = pepare_update_clause(set_vals)
                     where = prepare_where_clause(where_vals)
 
-                    SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + "and".join(where)
+                    SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + " and ".join(where)
                     print 'Update SQL : '+SQL
                     # print "update values = %s , prefix = %s , query = (%s) , columns  = (%s)" %(vals , prefix,row ,columns)
                     r.hmset(prefix+str(vals),vals)
@@ -78,52 +78,50 @@ def main():
     print "log position = %s" %(stream.log_pos)
     stream.close()
 
-def prepare_where_clause(vals):
+def prepare_where_clause(set_vals):
     where = []
-    for keys in vals:
-        column = vals[keys];
-        if type(column) == int:
-            where.append(' '+keys+'='+str(column)+' ')
-        elif type(column) == bool:
-            where.append(' '+keys+'='+str(column)+' ')
-        else:
-            where.append(' '+keys+'=\''+str(column)+'\''+' ')
-
+    for keys in set_vals:
+        column = check_field_types(set_vals[keys])
+        where.append(' '+keys+'= '+column)
     return where
+
+
+
 
 def pepare_update_clause(set_vals):
     update = []
     for keys in set_vals:
-        column = set_vals[keys]
-        if type(column) == int:
-            update.append(' '+keys+'='+str(column)+' ')
-        elif type(column) == bool:
-            update.append(' '+keys+'='+str(column)+' ')
-        else:
-            update.append(' '+keys+'=\''+str(column)+'\''+' ')
-
-
+        column = check_field_types(set_vals[keys])
+        update.append(' '+keys+'= '+column)
     return update
+
+
 
 def pepare_insert_values(set_vals):
     insert = {}
     insert_cols = []
     insert_vals = []
     for keys in set_vals:
-        column = set_vals[keys]
-        if type(column) == int:
-          insert_cols.append(keys)
-          insert_vals.append(str(column))
-        elif type(column) == bool:
-          insert_cols.append(keys)
-          insert_vals.append(str(column))
-        else:
-          insert_cols.append(keys)
-          insert_vals.append('\''+str(column)+'\'')
-
-        insert['cols'] = insert_cols
-        insert['vals'] = insert_vals
+        column = check_field_types(set_vals[keys])
+        insert_cols.append(keys)
+        insert_vals.append(str(column))
+    insert['cols'] = insert_cols
+    insert['vals'] = insert_vals
     return insert
+
+
+
+def check_field_types(column):
+    column_str = None
+    if type(column) == int:
+        column_str = str(column)
+    elif type(column) == bool:
+        column_str = str(column)
+    else:
+        column_str = '\''+str(column)+'\''
+    return column_str
+
+
 
 if __name__ == "__main__":
     main()
