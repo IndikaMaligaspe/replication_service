@@ -53,7 +53,7 @@ def main():
                     update = []
                     set_vals = row["after_values"]
                     where_vals = row["before_values"]
-                    update = pepare_update_clause(set_vals)
+                    update = prepare_update_clause(set_vals)
                     where = prepare_where_clause(where_vals)
                     SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + " and ".join(where)
                     print 'Update SQL : '+SQL
@@ -61,7 +61,8 @@ def main():
                     push_mesage(channel,SQL,queue)
                 elif isinstance(binlogevent,WriteRowsEvent):
                     vals = row["values"]
-                    insert = pepare_insert_values(vals)
+
+                    insert = prepare_insert_values(vals)
                     SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
                     print 'Insert SQL : '+SQL
                     # r.set(name = prefix+"insert - ", value = SQL)
@@ -70,58 +71,58 @@ def main():
     stream.close()
     connection.close();
 
-    def push_mesage(channel,message,key):
-        channel.basic_publish(exchange='',
-            routing_key  = key,
-            body = message,
-            properties=pika.BasicProperties(
-                delievery_mode = 2, #make message persistant
-            )
+def push_mesage(channel,message,key):
+    channel.basic_publish(exchange='',
+        routing_key  = key,
+        body = message,
+        properties=pika.BasicProperties(
+            delivery_mode = 2, #make message persistant
         )
+    )
+    return True
 
-        return True
-    def prepare_where_clause(set_vals):
-        where = []
-        for keys in set_vals:
-            column = check_field_types(set_vals[keys])
-            where.append(' '+keys+'= '+column)
-        return where
-
-
-
-
-    def pepare_update_clause(set_vals):
-        update = []
-        for keys in set_vals:
-            column = check_field_types(set_vals[keys])
-            update.append(' '+keys+'= '+column)
-        return update
+def prepare_where_clause(set_vals):
+    where = []
+    for keys in set_vals:
+        column = check_field_types(set_vals[keys])
+        where.append(' '+keys+'= '+column)
+    return where
 
 
 
-    def pepare_insert_values(set_vals):
-        insert = {}
-        insert_cols = []
-        insert_vals = []
-        for keys in set_vals:
-            column = check_field_types(set_vals[keys])
-            insert_cols.append(keys)
-            insert_vals.append(str(column))
-        insert['cols'] = insert_cols
-        insert['vals'] = insert_vals
-        return insert
+
+def prepare_update_clause(set_vals):
+    update = []
+    for keys in set_vals:
+        column = check_field_types(set_vals[keys])
+        update.append(' '+keys+'= '+column)
+    return update
 
 
 
-    def check_field_types(column):
-        column_str = None
-        if type(column) == int:
-            column_str = str(column)
-        elif type(column) == bool:
-            column_str = str(column)
-        else:
-            column_str = '\''+str(column)+'\''
-        return column_str
+def prepare_insert_values(set_vals):
+    insert = {}
+    insert_cols = []
+    insert_vals = []
+    for keys in set_vals:
+        column = check_field_types(set_vals[keys])
+        insert_cols.append(keys)
+        insert_vals.append(str(column))
+    insert['cols'] = insert_cols
+    insert['vals'] = insert_vals
+    return insert
+
+
+
+def check_field_types(column):
+    column_str = None
+    if type(column) == int:
+        column_str = str(column)
+    elif type(column) == bool:
+        column_str = str(column)
+    else:
+        column_str = '\''+str(column)+'\''
+    return column_str
 
 if __name__ == "__main__":
     main()
