@@ -1,3 +1,4 @@
 ---
   - include: redis.yml
-  # - include: python.yml 
+  - include: rabbitmq.yml
+  # - include: python.yml
