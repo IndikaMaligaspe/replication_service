@@ -1,0 +1,35 @@
+---
+  - name: install rabbitMQ server ,  apache and PHP5 and setup tools
+    apt: name=apache2 state=present
+    apt: name=php5 state=present
+
+
+  - name: install rabbitMQ server - add ppp to apt-list
+    apt_repository: repo='deb http://www.rabbitmq.com/debian/ testing main' state=present
+
+  - name: install rabbitMQ server - add keys
+    apt_key:
+      url=https://www.rabbitmq.com/rabbitmq-signing-key-public.asc state=present
+
+  - name: install rabbitMQ server
+    apt: update_cache=yes
+    apt: name=rabbitmq-server state=installed
+
+  - name: add users
+    rabbitmq_user:
+      user=Indika
+      password=changeme
+      tags=administrator
+      vhost=/
+      configure_priv=.*
+      write_priv=.*
+      read_priv=.*
+      state=present
+
+  - name: ensure vhost / test is present
+    rabbitmq_vhost: name=test state=present
+
+  - name: restart rabbitmq
+    service: name=rabbitmq-server state=restarted
+
+    # apt: name=php-redis state=present
