@@ -10,6 +10,7 @@
 import yaml
 import pika
 import time
+import mysql.connector
 
 def main():
     queuehost = '192.168.50.5'
@@ -28,10 +29,22 @@ def main():
     channel.start_consuming()
 
 def callback(ch,method,properties, body):
-    print ("[x] Recieved %s" %body)
+    write_to_consming_backend(body)
     time.sleep(body.count(b'.'))
     print("[x] Done")
     ch.basic_ack(delivery_tag = method.delivery_tag)
+
+def write_to_consming_backend(message):
+    print ("[x] Recieved %s" %message)
+    mysql_user_name = 'indika'
+    mysql_password = '123456'
+    mysql_host = '192.168.50.5'
+    mysql_port='3306'
+    mysql_database='maticportal'
+
+    cnx = mysql.connector.connect(user=mysql_user_name, password=mysql_password,
+                              host=mysql_host,
+                              database=mysql_database)
 
 
 if __name__ == "__main__":
