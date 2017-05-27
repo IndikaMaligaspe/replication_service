@@ -13,6 +13,10 @@ from pymysqlreplication.row_event import(
     WriteRowsEvent,
     UpdateRowsEvent
 )
+from pymysqlreplication.event import (
+    QueryEvent,
+    RotateEvent
+)
 
 MYSQL_SETTING = {
     "host": "192.168.50.4",
@@ -22,6 +26,7 @@ MYSQL_SETTING = {
 }
 
 def main():
+
     credentials = pika.PlainCredentials('Indika','changeme')
     connection  = pika.BlockingConnection(pika.ConnectionParameters(host='192.168.50.5',credentials=credentials))
     channel = connection.channel()
@@ -31,7 +36,7 @@ def main():
         connection_settings=MYSQL_SETTING,
         # resume_stream=True,
         server_id=3,
-        only_events=[DeleteRowsEvent, WriteRowsEvent, UpdateRowsEvent])
+        only_events=[DeleteRowsEvent, WriteRowsEvent, UpdateRowsEvent,QueryEvent])
 
     for binlogevent in stream:
         schema = binlogevent.schema
@@ -61,12 +66,16 @@ def main():
                     push_mesage(channel,SQL,queue)
                 elif isinstance(binlogevent,WriteRowsEvent):
                     vals = row["values"]
-
                     insert = prepare_insert_values(vals)
                     SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
                     print 'Insert SQL : '+SQL
                     # r.set(name = prefix+"insert - ", value = SQL)
                     push_mesage(channel,SQL,queue)
+                elif isinstance(binlogevent,QueryEvent):
+                    print ('Query Event - %s' %(str(row)))
+                elif isinstance(binlogevent,RotateEvent):
+                    print 'Log Rotated'
+
     print "log position = %s" %(stream.log_pos)
     stream.close()
     connection.close();
