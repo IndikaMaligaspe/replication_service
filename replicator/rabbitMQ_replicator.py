@@ -6,6 +6,8 @@
 '''
 
 import pika
+import time
+from time import sleep
 
 from pymysqlreplication import BinLogStreamReader
 from pymysqlreplication.row_event import(
@@ -26,57 +28,86 @@ MYSQL_SETTING = {
 }
 
 def main():
+    log_position = 0
+    start_binlograder(log_position)
 
+def start_binlograder(log_position):
     credentials = pika.PlainCredentials('Indika','changeme')
     connection  = pika.BlockingConnection(pika.ConnectionParameters(host='192.168.50.5',credentials=credentials))
     channel = connection.channel()
     queue = 'alienvault_replicate'
     channel.queue_declare(queue=queue,durable=True)
-    stream = BinLogStreamReader(
-        connection_settings=MYSQL_SETTING,
-        # resume_stream=True,
-        server_id=3,
-        only_events=[DeleteRowsEvent, WriteRowsEvent, UpdateRowsEvent,QueryEvent])
 
-    for binlogevent in stream:
-        schema = binlogevent.schema
-        table = binlogevent.table
-        columns = binlogevent.columns
-        prefix = "%s:%s" %(binlogevent.schema,binlogevent.table)
-        for row in binlogevent.rows:
-            # if stream.log_pos >= 1263:
-                if isinstance(binlogevent,DeleteRowsEvent):
-                    where = []
-                    vals = row["values"]
-                    where = prepare_where_clause(vals)
-                    SQL = 'delete from `'+schema+'`.`'+table+'` where ' + " and ".join(where)
-                    print 'Delete SQL : '+SQL
-                    # r.set(name = prefix+"delete - ", value = SQL)
-                    push_mesage(channel,SQL,queue)
-                elif isinstance(binlogevent,UpdateRowsEvent):
-                    where = []
-                    update = []
-                    set_vals = row["after_values"]
-                    where_vals = row["before_values"]
-                    update = prepare_update_clause(set_vals)
-                    where = prepare_where_clause(where_vals)
-                    SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + " and ".join(where)
-                    print 'Update SQL : '+SQL
-                    # r.set(name = prefix+"update - ", value = SQL)
-                    push_mesage(channel,SQL,queue)
-                elif isinstance(binlogevent,WriteRowsEvent):
-                    vals = row["values"]
-                    insert = prepare_insert_values(vals)
-                    SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
-                    print 'Insert SQL : '+SQL
-                    # r.set(name = prefix+"insert - ", value = SQL)
-                    push_mesage(channel,SQL,queue)
-                elif isinstance(binlogevent,QueryEvent):
-                    print ('Query Event - %s' %(str(row)))
-                elif isinstance(binlogevent,RotateEvent):
-                    print 'Log Rotated'
 
-    print "log position = %s" %(stream.log_pos)
+    while True:
+        stream = BinLogStreamReader(
+            connection_settings=MYSQL_SETTING,
+            # resume_stream=True,
+            server_id=3,
+            log_pos=log_position,
+            only_events=[DeleteRowsEvent, WriteRowsEvent, UpdateRowsEvent,QueryEvent,RotateEvent])
+            
+        for binlogevent in stream:
+            if isinstance(binlogevent,RotateEvent):
+                print 'Log Rotated'
+                log_position = 0
+            elif isinstance(binlogevent,QueryEvent):
+                schema = binlogevent.schema
+                prefix = "%s: " %(schema)
+                query = str(binlogevent.query)
+                print ('Query Event - %s' %(query))
+                if "create table".upper() in query.upper():
+                    print ('Create SQL - %s' %(query))
+                    push_mesage(channel,query,queue)
+                    log_position = stream.log_pos
+                elif "drop table".upper() in query.upper():
+                    print ('Drop SQL - %s' %(query))
+                    push_mesage(channel,query,queue)
+                    log_position = stream.log_pos
+
+            else:
+                schema = binlogevent.schema
+                table = binlogevent.table
+                columns = binlogevent.columns
+                for row in binlogevent.rows:
+                    # if stream.log_pos >= 1263:
+                        if isinstance(binlogevent,DeleteRowsEvent):
+                            prefix = "%s:%s" %(schema,table)
+                            where = []
+                            vals = row["values"]
+                            where = prepare_where_clause(vals)
+                            SQL = 'delete from `'+schema+'`.`'+table+'` where ' + " and ".join(where)
+                            print 'Delete SQL : '+SQL
+                            # r.set(name = prefix+"delete - ", value = SQL)
+                            push_mesage(channel,SQL,queue)
+                            log_position = stream.log_pos
+                        elif isinstance(binlogevent,UpdateRowsEvent):
+                            prefix = "%s:%s" %(schema,table)
+                            where = []
+                            update = []
+                            set_vals = row["after_values"]
+                            where_vals = row["before_values"]
+                            update = prepare_update_clause(set_vals)
+                            where = prepare_where_clause(where_vals)
+                            SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + " and ".join(where)
+                            print 'Update SQL : '+SQL
+                            # r.set(name = prefix+"update - ", value = SQL)
+                            push_mesage(channel,SQL,queue)
+                            log_position = stream.log_pos
+                        elif isinstance(binlogevent,WriteRowsEvent):
+                            prefix = "%s:%s" %(schema,table)
+                            vals = row["values"]
+                            insert = prepare_insert_values(vals)
+                            SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
+                            print 'Insert SQL : '+SQL
+                            # r.set(name = prefix+"insert - ", value = SQL)
+                            push_mesage(channel,SQL,queue)
+                            log_position = stream.log_pos
+
+
+
+            print "log position = %s" %(stream.log_pos)
+        sleep(10)
     stream.close()
     connection.close();
 
