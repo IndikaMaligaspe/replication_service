@@ -41,10 +41,29 @@ def write_to_consming_backend(message):
     mysql_host = '192.168.50.5'
     mysql_port='3306'
     mysql_database='maticportal'
+    schema_list = {'alienvault':'maticportal'}
 
     cnx = mysql.connector.connect(user=mysql_user_name, password=mysql_password,
                               host=mysql_host,
                               database=mysql_database)
+    message = change_scehame(message,schema_list)
+
+    try:
+        cursor = cnx.cursor()
+        cursor.execute(message);
+        cursor.close()
+    except mysql.connector.Error as err:
+        print err.message
+    finally:
+        cnx.close();
+
+def change_scehame(message,schema_list):
+    if schema_list == None:
+        return message
+    else:
+        for from_schema,to_schema in schema_list.items():
+            message = str(message).replace(from_schema,to_schema)
+    return message
 
 
 if __name__ == "__main__":
