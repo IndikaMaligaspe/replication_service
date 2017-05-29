@@ -8,6 +8,7 @@
 import pika
 import time
 import logging
+import os
 
 from time import sleep
 import mysql.connector
@@ -33,19 +34,20 @@ MYSQL_SETTING = {
     "passwd": "123456"
 }
 
+persist_file = os.getcwd()+'/persist.log'
+print persist_file
+
 def main():
     log_position = 4
     start_binlograder(log_position)
 
 def start_binlograder(log_position):
-    log_file = get_latest_master_log_file()
+    log_file , log_position = get_latest_master_log_file(persist_file)
     credentials = pika.PlainCredentials('Indika','changeme')
     connection  = pika.BlockingConnection(pika.ConnectionParameters(host='192.168.50.5',credentials=credentials))
     channel = connection.channel()
     queue = 'alienvault_replicate'
     channel.queue_declare(queue=queue,durable=True)
-
-
     while True:
         logger.debug('Log position - %s' %(log_position))
         stream = BinLogStreamReader(
@@ -57,6 +59,7 @@ def start_binlograder(log_position):
             log_pos=log_position,
             only_events=[DeleteRowsEvent, WriteRowsEvent, UpdateRowsEvent,QueryEvent,RotateEvent])
         logger.debug('stream.log_pos -> %s' %(stream.log_pos))
+        logger.debug('stream.log_file -> %s' %(stream.log_file))
         for binlogevent in stream:
             logger.debug('stream.log_pos -> %s' %(stream.log_pos))
             if stream.log_pos >= log_position:
@@ -74,13 +77,16 @@ def start_binlograder(log_position):
                         logger.debug ('Drop SQL - %s' %(query))
                         push_mesage(channel,query,queue)
                         log_position = stream.log_pos
-
                 elif isinstance(binlogevent,RotateEvent):
-                    log_file = get_latest_master_log_file()
-                    log_position = 4
+                    logger.info("RotateEvent fired... calling update_new_master_log_file...")
+                    update_new_master_log_file(persist_file)
+                    log_file , log_position = get_latest_master_log_file(persist_file)
+                    stream.log_pos = log_position
+                    stream.log_file = log_file
+                    logger.debug('Rotate Event log_pos -> %s' %(log_position))
+                    logger.debug('Rotate Event log_file -> %s' %(log_file))
                 else:
                     schema = binlogevent.schema
-
                     for row in binlogevent.rows:
                             table = binlogevent.table
                             columns = binlogevent.columns
@@ -116,10 +122,9 @@ def start_binlograder(log_position):
                                 # r.set(name = prefix+"insert - ", value = SQL)
                                 push_mesage(channel,SQL,queue)
                                 log_position = stream.log_pos
-
-
                 log_position = stream.log_pos
-            logger.info( "log position = %s" %(log_position))
+            logger.info( "Event loop end log position -> %s" %(log_position))
+            persist(log_file, log_position,persist_file)
         sleep(10)
     stream.close()
     connection.close();
@@ -174,7 +179,14 @@ def check_field_types(column):
         column_str = '\''+str(column)+'\''
     return column_str
 
-def get_latest_master_log_file():
+def get_latest_master_log_file(persist_file):
+    if(os.path.isfile(persist_file)):
+        log_file,log_position = get_master_log_and_postion_from_persist(persist_file)
+    else:
+        update_new_master_log_file(persist_file)
+    return log_file , log_position
+
+def update_new_master_log_file(persist_file):
     connection = None
     log_file = '0'
     try:
@@ -186,16 +198,40 @@ def get_latest_master_log_file():
         cursor.execute("SHOW MASTER STATUS")
         for rows in cursor:
             log_file = rows[0]
-
+            log_position = 4
         cursor.close()
         connection.close()
+        logger.debug('New Persist file -> %s, Log Position -> %d' %(log_file,log_position))
+        persist(log_file,log_position,persist_file)
     except mysql.connector.errors as mysqlerror:
-        logger.error(mysqlerror.msg)
+        logger.error(mysqlerror.message)
     finally:
         if None != connection:
             connection.close()
 
-    logger.debug('Log File -> %s' %(log_file))
-    return log_file
+
+def get_master_log_and_postion_from_persist(persist_file):
+    log_file = ''
+    log_position = 4
+    try:
+        file = open(persist_file, 'r')
+        persiste_entries = file.readline().split("|")
+        log_file = persiste_entries[0]
+        log_position = int(persiste_entries[1])
+        file.close()
+    except (IOError,ValueError) as error:
+        logger.error('Error opening persist file -> %s ' %(error.message))
+    # print log_file , log_position
+    return log_file,log_position
+
+def persist(master_file, log_position,persist_file):
+    try:
+        file = open(persist_file,'w')
+        file.write('%s|%d' %(master_file, log_position))
+        # file.write('' %(log_position))
+        file.close()
+    except IOError as ioError:
+        logger.error('Could not persist due to - > %s' %(ioError.message))
+
 if __name__ == "__main__":
     main()
