@@ -9,9 +9,12 @@ import pika
 import time
 import logging
 import os
+import yaml
+import sys
 
 from time import sleep
 import mysql.connector
+from pymysql.charset import charset_to_encoding
 
 from pymysqlreplication import BinLogStreamReader
 from pymysqlreplication.row_event import(
@@ -24,8 +27,6 @@ from pymysqlreplication.event import (
     RotateEvent
 )
 
-logging.basicConfig(filename='example.log',level=logging.DEBUG)
-logger = logging.getLogger()
 
 MYSQL_SETTING = {
     "host": "192.168.50.4",
@@ -34,17 +35,50 @@ MYSQL_SETTING = {
     "passwd": "123456"
 }
 
+RABBITMQ_SETTINGS = {}
+
 persist_file = os.getcwd()+'/persist.log'
-print persist_file
+logger = logging.getLogger()
 
 def main():
     log_position = 4
+    configs = get_configs()
     start_binlograder(log_position)
 
+def get_configs():
+    config_file = sys.argv[1]
+    with open(config_file, 'r') as yfile:
+        doc = yaml.load(yfile)
+        MYSQL_SETTING['host'] = str(doc['mysql_master']['host'])
+        MYSQL_SETTING['port'] = int(doc['mysql_master']['port'])
+        MYSQL_SETTING['user'] = str(doc['mysql_master']['user'])
+        MYSQL_SETTING['passwd'] = str(doc['mysql_master']['passwd'])
+        persist_file = doc['logs']['persist_log']
+        log4py_file = doc['logs']['log4py']['path']
+        log4py_log_level = doc['logs']['log4py']['log_level']
+        RABBITMQ_SETTINGS['host'] = str(doc['rabbitMQ']['host'])
+        RABBITMQ_SETTINGS['passwd'] = str(doc['rabbitMQ']['passwd'])
+        RABBITMQ_SETTINGS['user'] = str(doc['rabbitMQ']['user'])
+
+        if log4py_log_level == 'DEBUG':
+            log_level = logging.DEBUG
+        elif log4py_log_level == 'INFO':
+            log_level = logging.INFO
+        elif log4py_log_level == 'WARN':
+            log_level = logging.WARN
+        elif log4py_log_level == 'ERROR':
+            log_level = logging.ERROR
+
+    logging.basicConfig(filename=log4py_file,level=log_level)
+
+
+
+
 def start_binlograder(log_position):
+    print MYSQL_SETTING['passwd']
     log_file , log_position = get_latest_master_log_file(persist_file)
-    credentials = pika.PlainCredentials('Indika','changeme')
-    connection  = pika.BlockingConnection(pika.ConnectionParameters(host='192.168.50.5',credentials=credentials))
+    credentials = pika.PlainCredentials(RABBITMQ_SETTINGS['user'],RABBITMQ_SETTINGS['passwd'])
+    connection  = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_SETTINGS['host'],credentials=credentials))
     channel = connection.channel()
     queue = 'alienvault_replicate'
     channel.queue_declare(queue=queue,durable=True)
@@ -90,11 +124,13 @@ def start_binlograder(log_position):
                     for row in binlogevent.rows:
                             table = binlogevent.table
                             columns = binlogevent.columns
+
+
                             if isinstance(binlogevent,DeleteRowsEvent):
                                 prefix = "%s:%s" %(schema,table)
                                 where = []
                                 vals = row["values"]
-                                where = prepare_where_clause(vals)
+                                where = prepare_where_clause(vals,columns)
                                 SQL = 'delete from `'+schema+'`.`'+table+'` where ' + " and ".join(where)
                                 logger.debug('Delete SQL : '+SQL)
                                 # r.set(name = prefix+"delete - ", value = SQL)
@@ -106,8 +142,8 @@ def start_binlograder(log_position):
                                 update = []
                                 set_vals = row["after_values"]
                                 where_vals = row["before_values"]
-                                update = prepare_update_clause(set_vals)
-                                where = prepare_where_clause(where_vals)
+                                update = prepare_update_clause(set_vals,columns)
+                                where = prepare_where_clause(where_vals,columns)
                                 SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + " and ".join(where)
                                 logger.debug( 'Update SQL : '+SQL)
                                 # r.set(name = prefix+"update - ", value = SQL)
@@ -116,7 +152,8 @@ def start_binlograder(log_position):
                             elif isinstance(binlogevent,WriteRowsEvent):
                                 prefix = "%s:%s" %(schema,table)
                                 vals = row["values"]
-                                insert = prepare_insert_values(vals)
+                                insert = prepare_insert_values(vals,columns)
+                                logger.debug(insert)
                                 SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
                                 logger.debug( 'Insert SQL : '+SQL)
                                 # r.set(name = prefix+"insert - ", value = SQL)
@@ -139,44 +176,55 @@ def push_mesage(channel,message,key):
     )
     return True
 
-def prepare_where_clause(set_vals):
+def prepare_where_clause(set_vals,columns):
     where = []
+    i=0
     for keys in set_vals:
-        column = check_field_types(set_vals[keys])
+        column = check_field_types(set_vals[keys],columns[i])
         where.append(' '+keys+'= '+column)
+        i+=1
     return where
 
 
-def prepare_update_clause(set_vals):
+def prepare_update_clause(set_vals,columns):
     update = []
+    i=0
     for keys in set_vals:
-        column = check_field_types(set_vals[keys])
+        column = check_field_types(set_vals[keys],columns[i])
         update.append(' '+keys+'= '+column)
+        i+=1
     return update
 
-def prepare_insert_values(set_vals):
+def prepare_insert_values(set_vals,columns):
     insert = {}
     insert_cols = []
     insert_vals = []
+    i=0
     for keys in set_vals:
-        column = check_field_types(set_vals[keys])
+        column = check_field_types(set_vals[keys],columns[i])
         insert_cols.append(keys)
-        insert_vals.append(str(column))
+        insert_vals.append(column)
+        i+=1
     insert['cols'] = insert_cols
     insert['vals'] = insert_vals
     return insert
 
-def check_field_types(column):
+# latin1
+# string = string.decode(charset_to_encoding(column.character_set_name))
+def check_field_types(column_value,column_type):
+    print ('column value - %s column type %s' %(column_value,column_type.type))
     column_str = None
-    if type(column) == int:
-        column_str = str(column)
-    elif type(column) == bool:
-        column_str = str(column)
-    elif type(column) == str:
-        column_str = '\''+str(column)+'\''
+    if type(column_value) == int:
+        column_str = str(column_value)
+    elif type(column_value) == bool:
+        column_str = str(column_value)
+    elif type(column_value) == str:
+        column_str = '\''+str(column_value).decode(charset_to_encoding('latin1'))+'\''
+    # elif type(column) == unicode:
+    #     column_str = '\''+str(column).decode(charset_to_encoding('latin1'))+'\''
     else:
-        logger.warn('New Column Type found - %s - ' %(type(column)))
-        column_str = '\''+str(column)+'\''
+        logger.warn('New Column Type found - %s - ' %(type(column_value)))
+        column_str = '\''+column_value+'\''
     return column_str
 
 def get_latest_master_log_file(persist_file):
