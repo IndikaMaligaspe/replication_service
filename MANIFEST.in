@@ -1,0 +1,6 @@
+recursive-include replication_service *.py
+recursive-include replication_service *.pickle
+recursive-include replication_service *.yaml
+include README
+include LICENSE
+include requirements.txt

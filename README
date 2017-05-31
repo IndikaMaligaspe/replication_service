@@ -1,0 +1,7 @@
+This is MySQL to rabbitMQ replication / consumer service. The idea is to replicate all 
+Row events to rabbitMQ.
+
+The replcator replicates a MySQL master database to a given rabbitMQ instance
+
+The consumer package reads from a given rabbitMQ instance and then pushes that to
+a given MySQL slave. The consumers can push to multiple slaves if needed.
