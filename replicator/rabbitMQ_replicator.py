@@ -27,6 +27,7 @@ from pymysqlreplication.event import (
     RotateEvent
 )
 
+from pymysqlreplication.constants import FIELD_TYPE
 
 MYSQL_SETTING = {
     "host": "192.168.50.4",
@@ -180,8 +181,8 @@ def prepare_where_clause(set_vals,columns):
     where = []
     i=0
     for keys in set_vals:
-        column = check_field_types(set_vals[keys],columns[i])
-        where.append(' '+keys+'= '+column)
+        column = check_field_types(set_vals[columns[i].name],columns[i])
+        where.append(columns[i].name+'= '+column)
         i+=1
     return where
 
@@ -211,20 +212,86 @@ def prepare_insert_values(set_vals,columns):
 
 # latin1
 # string = string.decode(charset_to_encoding(column.character_set_name))
-def check_field_types(column_value,column_type):
-    print ('column value - %s column type %s' %(column_value,column_type.type))
-    column_str = None
-    if type(column_value) == int:
-        column_str = str(column_value)
-    elif type(column_value) == bool:
-        column_str = str(column_value)
-    elif type(column_value) == str:
-        column_str = '\''+str(column_value).decode(charset_to_encoding('latin1'))+'\''
-    # elif type(column) == unicode:
-    #     column_str = '\''+str(column).decode(charset_to_encoding('latin1'))+'\''
+def check_field_types(column_value,column):
+    if None == column.character_set_name:
+        character_set_name = 'latin1'
     else:
-        logger.warn('New Column Type found - %s - ' %(type(column_value)))
-        column_str = '\''+column_value+'\''
+        character_set_name = column.character_set_name
+
+    logger.debug ('column name - %s , column value - %s , column type %s' %(column.name, column_value.decode(charset_to_encoding(character_set_name)),column.type))
+
+    column_str = None
+
+    if column.type == FIELD_TYPE.TINY:
+        column_str = column_value
+    elif column.type == FIELD_TYPE.SHORT:
+        column_str = column_value
+    elif column.type == FIELD_TYPE.LONG:
+        column_str = column_value
+    elif column.type == FIELD_TYPE.INT24:
+        column_str = column_value
+    elif column.type == FIELD_TYPE.FLOAT:
+        column_str = column_value
+    elif column.type == FIELD_TYPE.DOUBLE:
+        column_str = column_value
+    elif column.type == FIELD_TYPE.VARCHAR or \
+            column.type == FIELD_TYPE.STRING:
+        column_str = '\''+str(column_value).decode(charset_to_encoding(character_set_name))+'\''
+    elif column.type == FIELD_TYPE.NEWDECIMAL:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.BLOB:
+        column_str = '\''+str(column_value).decode(charset_to_encoding(character_set_name))+'\''
+    elif column.type == FIELD_TYPE.DATETIME:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.TIME:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.DATE:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.TIMESTAMP:
+        vcolumn_str = '\''+str(column_value)+'\''
+
+    # For new date format:
+    elif column.type == FIELD_TYPE.DATETIME2:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.TIME2:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.TIMESTAMP2:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.LONGLONG:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.YEAR:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.ENUM:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.SET:
+        # We read set columns as a bitmap telling us which options
+        # are enabled
+        column_str = '\''+str(column_value)+'\''
+
+    elif column.type == FIELD_TYPE.BIT:
+        column_str = 'b\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.GEOMETRY:
+        column_str = '\''+str(column_value)+'\''
+    elif column.type == FIELD_TYPE.JSON:
+        column_str = '\''+str(column_value)+'\''
+    else:
+        raise NotImplementedError("Unknown MySQL column type: %d" %
+                                  (column.type))
+
+
+
+    # if type(column_value) == int:
+    #     column_str = str(column_value)
+    # elif type(column_value) == bool:
+    #     column_str = str(column_value)
+    # elif type(column_value) == str:
+    #     column_str = '\''+str(column_value).decode(charset_to_encoding('latin1'))+'\''
+    # # elif type(column) == unicode:
+    # #     column_str = '\''+str(column).decode(charset_to_encoding('latin1'))+'\''
+    # else:
+    #     logger.warn('New Column Type found - %s - ' %(type(column_value)))
+    #     logger.debug(column_value)
+    #     column_str = '\''+column_value+'\''
     return column_str
 
 def get_latest_master_log_file(persist_file):
