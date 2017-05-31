@@ -1,0 +1,15 @@
+---
+logs:
+  log4py:
+    log_level: DEBUG
+    path: /workspace/securematic/replication_service/log4py.log
+  persist_log: /workspace/securematic/replication_service/persist
+mysql_master:
+  host: 192.168.50.4
+  passwd: 123456
+  port: 3306
+  user: indika
+rabbitMQ:
+  host: 192.168.50.5
+  passwd: changeme
+  user: Indika
