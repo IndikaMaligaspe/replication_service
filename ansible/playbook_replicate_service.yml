@@ -2,8 +2,11 @@
   - hosts: test
     sudo: true
     vars:
-      document_root: /vagrant
-      profile: slave
+      local_dist_src:  /workspace/securematic/replication_service/dist/
+      dest_dist:  /workspace/securematic/replication_service/dist/
+      replicator_version: 0.1
+      package_name: "MySQL_RabbitMQ_replicator"
+      profile: replicator
 
     # pre_tasks:
     #   - name: update apt cache
