@@ -1,9 +1,3 @@
 ---
   - name: install mysql-server
     apt:  name=mysql-server state=present
-
-  - shell: echo "Yahoo I am slave .."
-    when: profile == "slave"
-
-  - shell: echo "Yahoo I am master .."
-    when: profile == "master"

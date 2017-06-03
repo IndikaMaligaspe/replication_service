@@ -1,0 +1,55 @@
+---
+  - name: install python and setup tools
+    apt: name=python2.7  state=present
+    apt: name=python-pip state=present
+
+  - stat:
+      path: /replication_service
+    register: file_path
+
+  - name: install virtualenv
+    pip:
+      name: virtualenv
+      state: present
+
+  # - name: install python binlog replicator
+  #   pip: name=mysql-replication state=present
+
+  # - name: Create folder structure for replicator
+  #   command: mkdir /replication_service
+  #   when: file_path.stat.exists == False
+
+  - name: Upload setup.py to folder
+    copy:
+      src: /workspace/securematic/replication_service/dist/MySQL_RabbitMQ_replicator-0.1.tar.gz
+      dest: /tmp/MySQL_RabbitMQ_replicator-0.1.tar.gz
+      mode: 775
+
+  - name: Initiate virtualenv and install app
+    unarchive:
+      src: /tmp/MySQL_RabbitMQ_replicator-0.1.tar.gz
+      dest: /
+      # remote_src: True
+      copy: no
+
+
+  - name: Upload wheels to folder
+    copy:
+      src: /workspace/securematic/replication_service/dist/MySQL_RabbitMQ_replicator-0.1-py2.py3-none-any.whl
+      dest: /MySQL_RabbitMQ_replicator-0.1/MySQL_RabbitMQ_replicator-0.1-py2.py3-none-any.whl
+      mode: 775
+
+      # state: present
+
+
+  - name: install 3rd party libraries
+    pip:
+      requirements: /MySQL_RabbitMQ_replicator-0.1/requirements.txt
+      virtualenv: /MySQL_RabbitMQ_replicator-0.1/venv
+      state: present
+
+  - name: setup MySQL_RabbitMQ_replicator
+    shell:
+      cmd: |
+        source /MySQL_RabbitMQ_replicator-0.1/venv/bin/activate
+        sudo python /MySQL_RabbitMQ_replicator-0.1/setup.py install

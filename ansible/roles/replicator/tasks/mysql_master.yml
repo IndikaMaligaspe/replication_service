@@ -1,0 +1,35 @@
+---
+    - name: backup existing my.cnf
+      copy:
+        remote_src: True
+        src: /etc/mysql/my.cnf
+        dest: /etc/mysql/my_bk.cnf
+        owner: root
+        group: root
+        mode: "u=rw,g=r,o=r"
+        state: present
+
+    - name: Change my.cnf settings server-id
+      lineinfile:
+        dest: /etc/mysql/my.cnf
+        regexp: '^{{ item.property }}'
+        line: '{{ item.value }}'
+      with_items:
+        - property: 'bind-address'
+          value: '#bind-address = 127.0.0.1'
+        - property: '#server-id'
+          value: 'server-id = 1'
+        - property: '#log_bin'
+          value: 'log_bin  = /var/log/mysql/mysql-bin.log'
+
+    - name: add a new line to my.cnf
+      lineinfile:
+         dest: /etc/mysql/my.cnf
+         insertafter: '^log_bin'
+         line: 'binlog-format    = row'
+         state: present
+
+    - name: restart mysql
+      service:
+        name: mysql
+        state: restarted
