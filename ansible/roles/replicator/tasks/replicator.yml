@@ -1,4 +1,20 @@
 ---
+
+  - name: Load vars for replication settings
+    include_vars:
+      file: "repliate_settings.yaml"
+      name: replicate_settings
+
+  - name: Load vars for replication host
+    include_vars:
+      file: "replication_{{run_host}}.yaml"
+      name: replicate_host
+
+  - set_fact:
+      tar_file_name: "{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}.tar.gz"
+      wheels_file_name: "{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}-py2.py3-none-any.whl"
+
+
   - name: install python and setup tools
     apt: name=python2.7  state=present
     apt: name=python-pip state=present
@@ -9,14 +25,11 @@
       name: virtualenv
       state: present
 
-  - set_fact:
-      tar_file_name: "{{ package_name }}-{{ replicator_version }}.tar.gz"
-      wheels_file_name: "{{ package_name }}-{{ replicator_version }}-py2.py3-none-any.whl"
 
 
   - name: Upload setup.py to folder
     copy:
-      src: "{{ local_dist_src }}{{ tar_file_name }}"
+      src: "{{ replicate_settings.local_dist_src }}{{ tar_file_name }}"
       dest: "/tmp/{{ tar_file_name }}"
       mode: 775
 
@@ -30,8 +43,8 @@
 
   - name: Upload wheels to folder
     copy:
-      src: "{{ local_dist_src }}{{ wheels_file_name }}"
-      dest: "/{{ package_name }}-{{ replicator_version }}/{{ wheels_file_name }}"
+      src: "{{ replicate_settings.local_dist_src }}{{ wheels_file_name }}"
+      dest: "/{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}/{{ wheels_file_name }}"
       mode: 775
 
       # state: present
@@ -39,12 +52,13 @@
 
   - name: install 3rd party libraries
     pip:
-      requirements: "/{{ package_name }}-{{ replicator_version }}/requirements.txt"
-      virtualenv: "/{{ package_name }}-{{ replicator_version }}/venv"
+      requirements: "/{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}/requirements.txt"
+      virtualenv: "/{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}/venv"
       state: present
 
   - name: setup MySQL_RabbitMQ_replicator
     shell:
       cmd: |
-        source "/{{ package_name }}-{{ replicator_version }}/venv/bin/activate"
-        sudo python "/{{ package_name }}-{{ replicator_version }}/setup.py" install
+        cd "/{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}"
+        sudo source "/venv/bin/activate"
+        sudo python setup.py install
