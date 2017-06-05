@@ -1,12 +1,10 @@
 appdirs==1.4.3
-APScheduler==3.3.1
 funcsigs==1.0.2
 futures==3.1.1
 mysql-connector-python-rf==2.2.2
 mysql-replication==0.13
 packaging==16.8
 pika==0.10.0
-pkg-resources==0.0.0
 PyMySQL==0.7.11
 pyparsing==2.2.0
 pytz==2017.2

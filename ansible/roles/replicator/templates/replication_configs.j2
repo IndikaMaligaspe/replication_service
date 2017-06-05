@@ -1,0 +1,16 @@
+---
+  hosts:
+      mysql:
+        host: {{settings.hosts.mysql.host }}
+        port: {{ settings.hosts.mysql.port }}
+        user: {{ settings.hosts.mysql.user }}
+        passwd: {{ settings.hosts.mysql.passwd }}
+      logs:
+        persist: {{ settings.hosts.logs.persist }}
+        log4py_path: {{ settings.hosts.logs.log4py_path }}
+        log4py_level: {{ settings.hosts.logs.log4py_level }}
+      rabbitmq:
+        host: {{ settings.hosts.rabbitmq.host }}
+        user: {{ settings.hosts.rabbitmq.user }}
+        passwd: {{ settings.hosts.rabbitmq.passwd }}
+      config_file_name: {{ settings.hosts.config_file_name }}

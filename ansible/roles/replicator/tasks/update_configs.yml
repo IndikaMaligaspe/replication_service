@@ -1,0 +1,34 @@
+---
+  - name: debug message
+    debug: msg="replication_{{run_host}}.yaml"
+
+  - name: Load configs1
+    include_vars:
+      file: "replication_{{run_host}}.yaml"
+      name: settings
+  - name: Load configs2
+    include_vars:
+      file: "replicate_settings.yaml"
+      name: replicate_settings
+
+  - set_fact:
+      mysql_host: "{{ settings.hosts.mysql.host }}"
+      mysql_port: "{{ settings.hosts.mysql.port }}"
+      mysql_user: "{{ settings.hosts.mysql.user }}"
+      mysql_passwd: "{{ settings.hosts.mysql.passwd }}"
+      persist_log: "{{ settings.hosts.logs.persist }}"
+      log4py_path: "{{ settings.hosts.logs.log4py_path }}"
+      log4py_level: "{{ settings.hosts.logs.log4py_level }}"
+      rabbitmq_host: "{{ settings.hosts.rabbitmq.host }}"
+      rabbitmq_user: "{{ settings.hosts.rabbitmq.user }}"
+      rabbitmq_passwd: "{{ settings.hosts.rabbitmq.passwd }}"
+      config_file_name: "{{ settings.hosts.config_file_name }}"
+      home_dir: "{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}"
+  - name: debug message
+    debug: msg="{{log4py_level}}"
+
+  - name: Change my.cnf settings server-id
+    template:
+        src: replication_configs.j2
+        dest: "/{{ home_dir }}/{{ config_file_name }}"
+        mode: 0777

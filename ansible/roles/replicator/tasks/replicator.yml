@@ -2,7 +2,7 @@
 
   - name: Load vars for replication settings
     include_vars:
-      file: "repliate_settings.yaml"
+      file: "replicate_settings.yaml"
       name: replicate_settings
 
   - name: Load vars for replication host
@@ -26,7 +26,6 @@
       state: present
 
 
-
   - name: Upload setup.py to folder
     copy:
       src: "{{ replicate_settings.local_dist_src }}{{ tar_file_name }}"
@@ -37,7 +36,6 @@
     unarchive:
       src: "/tmp/{{ tar_file_name }}"
       dest: /
-      # remote_src: True
       copy: no
 
 
@@ -46,8 +44,6 @@
       src: "{{ replicate_settings.local_dist_src }}{{ wheels_file_name }}"
       dest: "/{{ replicate_settings.package_name }}-{{ replicate_settings.replicator_version }}/{{ wheels_file_name }}"
       mode: 775
-
-      # state: present
 
 
   - name: install 3rd party libraries
