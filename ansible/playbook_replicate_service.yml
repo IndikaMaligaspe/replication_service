@@ -1,12 +1,10 @@
 ---
-  - hosts: test
-    gather_facts: false
+  - hosts: "{{run_host}}"
+    gather_facts: true
     sudo: true
+    pre_tasks:
+      - name: update apt cache
+        apt: update_cache=yes
 
-
-    # pre_tasks:
-    #   - name: update apt cache
-    #     apt: update_cache=yes
-      # when: update_cache
     roles:
       - replicator

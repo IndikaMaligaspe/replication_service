@@ -1,15 +1,15 @@
 ---
   hosts:
       mysql:
-        host: 192.168.50.4
+        host: 45.63.69.143
         port: 3306
-        user: indika
-        passwd: 123456
+        user: root
+        passwd: yWCA0X2eXN
       logs:
-        persist: /workspace/securematic/replication_service/persist
-        log4py_path: /workspace/securematic/replication_service/log4py.log
+        persist: replication_service/persist
+        log4py_path: replication_service/log4py.log
         log4py_level: DEBUG
       rabbitmq:
-        host: 192.168.50.5
+        host: 108.61.241.246
         user: Indika
         passwd: changeme

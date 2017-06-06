@@ -1,4 +1,9 @@
 ---
-  # - include: mysql_master.yml
+  - include: mysql_master.yml
+    when: (MASTER|default(false)|bool or ALL_APP|default(false)|bool)
+  - include: rabbitmq.yml
+    when: (RABBITMQ|default(false)|bool or ALL_APP|default(false)|bool)
   - include: replicator.yml
+    when: (REPLICATOR|default(false)|bool or ALL_APP|default(false)|bool)
   - include: update_configs.yml
+    when: (REPLICATOR|default(false)|bool or ALL_APP|default(false)|bool)
