@@ -1,0 +1,17 @@
+---
+logs:
+  log4py:
+    log_level: DEBUG
+    path: /workspace/securematic/replication_service/log4py.log
+mysql_slave:
+  host: 192.168.50.5
+  passwd: 123456
+  port: 3306
+  user: indika
+  database: maticportal
+rabbitMQ:
+  # host: 108.61.241.246
+  host: localhost
+  passwd: test
+  user: test
+  queue: alienvault_replicate

@@ -7,27 +7,58 @@
         owner: root
         group: root
         mode: "u=rw,g=r,o=r"
-        state: present
+        # state: present
 
-    - name: Change my.cnf settings server-id
+    - name: remove  my.cnf settings which we need to change
       lineinfile:
         dest: /etc/mysql/my.cnf
-        regexp: '^{{ item.property }}'
-        line: '{{ item.value }}'
+        regexp: '^{{ item.name }}'
+        state: absent
       with_items:
-        - property: 'bind-address'
-          value: '#bind-address = 127.0.0.1'
-        - property: '#server-id'
-          value: 'server-id = 1'
-        - property: '#log_bin'
-          value: 'log_bin  = /var/log/mysql/mysql-bin.log'
+        - name: 'bind-address'
+        - name: 'server-id'
+        - name: 'log_bin'
+        - name: 'binlog-format'
 
-    - name: add a new line to my.cnf
+    - name: Add to my.cnf settings we need to add
       lineinfile:
-         dest: /etc/mysql/my.cnf
-         insertafter: '^log_bin'
-         line: 'binlog-format    = row'
-         state: present
+        dest: /etc/mysql/my.cnf
+        insertafter: '^log_bin'
+        line:  '{{ item.name }}'
+        state: present
+      with_items:
+        - name: '#bind-address = 127.0.0.1'
+        - name: 'server-id=1'
+        - name: 'log_bin= /var/log/mysql/mysql-bin.log'
+        - name: 'binlog-format=row'
+
+
+    # - name: Change my.cnf settings server-id
+    #   replace:
+    #     path: /etc/mysql/my.cnf
+    #     regexp: '^{{ item.property }}'
+    #     replace: '{{ item.value }}'
+    #   with_items:
+    #     - property: 'bind-address'
+    #       value: '#bind-address = 127.0.0.1'
+    #     - property: 'server-id'
+    #       value: 'server-id=1'
+    #     - property: '#log_bin'
+    #       value: 'log_bin  = /var/log/mysql/mysql-bin.log'
+    #
+    #
+    # - name: add a new line to my.cnf
+    #   lineinfile:
+    #      dest: /etc/mysql/my.cnf
+    #      insertafter: '^log_bin'
+    #      state: present
+    #
+    # - name: add a new line to my.cnf
+    #   lineinfile:
+    #      dest: /etc/mysql/my.cnf
+    #      insertafter: '^log_bin'
+    #      line: 'binlog-format    = row'
+    #      state: present
 
     - name: restart mysql
       service:

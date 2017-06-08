@@ -8,6 +8,8 @@ import logging
 import os
 import yaml
 import sys
+import base64
+import cPickle
 
 from time import sleep
 import mysql.connector
@@ -104,11 +106,21 @@ def start_binlograder(log_position):
                     logger.debug ('Query Event - %s' %(query))
                     if "create table".upper() in query.upper():
                         logger.debug ('Create SQL - %s' %(query))
-                        push_mesage(channel,query,queue)
+                        dataset = {}
+                        dataset['table']= table
+                        dataset['schema'] = schema
+                        dataset['type'] = 'create'
+                        dataset['query'] = query
+                        push_mesage(channel,dataset,queue)
                         log_position = stream.log_pos
                     elif "drop table".upper() in query.upper():
                         logger.debug ('Drop SQL - %s' %(query))
-                        push_mesage(channel,query,queue)
+                        dataset = {}
+                        dataset['table']= table
+                        dataset['schema'] = schema
+                        dataset['type'] = 'drop'
+                        dataset['query'] = query
+                        push_mesage(channel,dataset,queue)
                         log_position = stream.log_pos
                 elif isinstance(binlogevent,RotateEvent):
                     logger.info("RotateEvent fired... calling update_new_master_log_file...")
@@ -126,37 +138,33 @@ def start_binlograder(log_position):
 
 
                             if isinstance(binlogevent,DeleteRowsEvent):
-                                prefix = "%s:%s" %(schema,table)
-                                where = []
-                                vals = row["values"]
-                                where = prepare_where_clause(vals,columns)
-                                SQL = 'delete from `'+schema+'`.`'+table+'` where ' + " and ".join(where)
-                                logger.debug('Delete SQL : '+SQL)
-                                # r.set(name = prefix+"delete - ", value = SQL)
-                                push_mesage(channel,SQL,queue)
+                                dataset = {}
+                                dataset['table']= table
+                                dataset['schema'] = schema
+                                dataset['type'] = 'delete'
+                                dataset['values'] = row["values"]
+                                dataset['cols'] = get_columns(columns)
+                                push_mesage(channel,dataset,queue)
                                 log_position = stream.log_pos
                             elif isinstance(binlogevent,UpdateRowsEvent):
-                                prefix = "%s:%s" %(schema,table)
-                                where = []
-                                update = []
-                                set_vals = row["after_values"]
-                                where_vals = row["before_values"]
-                                update = prepare_update_clause(set_vals,columns)
-                                where = prepare_where_clause(where_vals,columns)
-                                SQL = 'update  `'+schema+'`.`'+table+'` set '+" , ".join(update)+' where ' + " and ".join(where)
-                                logger.debug( 'Update SQL : '+SQL)
-                                # r.set(name = prefix+"update - ", value = SQL)
-                                push_mesage(channel,SQL,queue)
+                                dataset = {}
+                                dataset['table']= table
+                                dataset['schema'] = schema
+                                dataset['type'] = 'update'
+                                dataset['after_values'] = row["after_values"]
+                                dataset['before_values'] = row["before_values"]
+                                dataset['cols'] = get_columns(columns)
+                                push_mesage(channel,dataset,queue)
                                 log_position = stream.log_pos
                             elif isinstance(binlogevent,WriteRowsEvent):
-                                prefix = "%s:%s" %(schema,table)
                                 vals = row["values"]
-                                insert = prepare_insert_values(vals,columns)
-                                logger.debug(insert)
-                                SQL = 'insert into  `'+schema+'`.`'+table+'` ('+" , ".join(insert['cols'])+') values ('+" , ".join(insert['vals'])+')'
-                                logger.debug( 'Insert SQL : '+SQL)
-                                # r.set(name = prefix+"insert - ", value = SQL)
-                                push_mesage(channel,SQL,queue)
+                                dataset = {}
+                                dataset['table']= table
+                                dataset['schema'] = schema
+                                dataset['type'] = 'insert'
+                                dataset['values'] = vals
+                                dataset['cols'] = get_columns(columns)
+                                push_mesage(channel,dataset,queue)
                                 log_position = stream.log_pos
                 log_position = stream.log_pos
             logger.info( "Event loop end log position -> %s" %(log_position))
@@ -169,13 +177,18 @@ def start_binlograder(log_position):
 def push_mesage(channel,message,key):
     channel.basic_publish(exchange='',
         routing_key  = key,
-        body = message,
+        body = cPickle.dumps(message),
         properties=pika.BasicProperties(
             delivery_mode = 2, #make message persistant
         )
     )
     return True
 
+def get_columns(columns):
+    cols = []
+    for column in columns:
+        cols.append(column.name)
+    return cols
 
 def prepare_where_clause(set_vals,columns):
     where = []
@@ -199,17 +212,20 @@ def prepare_update_clause(set_vals,columns):
 
 def prepare_insert_values(set_vals,columns):
     insert = {}
-    insert_cols = []
-    insert_vals = []
+    insert_cols = ''
+    insert_vals = ''
     i=0
     for keys in set_vals:
         column = check_field_types(set_vals[keys],columns[i])
-        insert_cols.append(keys)
-        insert_vals.append(column)
+        insert_cols = insert_cols + keys+','
+        if type(column) == 'str':
+            insert_vals = insert_vals + (str('%s' %(column.decode(charset_to_encoding(character_set_name))))+',')
+        else:
+            insert_vals = insert_vals + (str('%s' %(column))+',')
         i+=1
-    insert['cols'] = insert_cols
-    insert['vals'] = insert_vals
-    return insert
+    # insert['cols'] = insert_cols
+    # insert['vals'] = insert_vals
+    return insert_cols , insert_vals
 
 
 def check_field_types(column_value,column):
@@ -218,7 +234,12 @@ def check_field_types(column_value,column):
     else:
         character_set_name = column.character_set_name
 
-    logger.debug ('column name - %s , column value - %s , column type %s' %(column.name, column_value.decode(charset_to_encoding(character_set_name)),column.type))
+    logger.debug(type(column_value))
+    if type(column_value) == 'str':
+        logger.debug ('column name - %s , column value - %s , column type %s' %(column.name, column_value.decode(charset_to_encoding(character_set_name)),column.type))
+    # else:
+    # logger.debug ('column name - %s , column value - %s , column type %s' %(column.name, column_value,column.type))
+
 
     column_str = None
 
@@ -236,44 +257,62 @@ def check_field_types(column_value,column):
         column_str = column_value
     elif column.type == FIELD_TYPE.VARCHAR or \
             column.type == FIELD_TYPE.STRING:
-        column_str = '\''+str(column_value).decode(charset_to_encoding(character_set_name))+'\''
+        column_str = column_value.decode(charset_to_encoding(character_set_name))
+        # column_str = ('%s' %(column_value))
+
     elif column.type == FIELD_TYPE.NEWDECIMAL:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.BLOB:
-        column_str = '\''+str(column_value).decode(charset_to_encoding(character_set_name))+'\''
+        column_str = column_value.decode(charset_to_encoding(character_set_name))
+        # column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.DATETIME:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.TIME:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.DATE:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.TIMESTAMP:
-        vcolumn_str = '\''+str(column_value)+'\''
+        # vcolumn_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
 
     # For new date format:
     elif column.type == FIELD_TYPE.DATETIME2:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.TIME2:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.TIMESTAMP2:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.LONGLONG:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.YEAR:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.ENUM:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.SET:
         # We read set columns as a bitmap telling us which options
         # are enabled
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
 
     elif column.type == FIELD_TYPE.BIT:
-        column_str = 'b\''+str(column_value)+'\''
+        # column_str = 'b\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.GEOMETRY:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     elif column.type == FIELD_TYPE.JSON:
-        column_str = '\''+str(column_value)+'\''
+        # column_str = '\''+str(column_value)+'\''
+        column_str = ('%s' %(column_value))
     else:
         logger.error("Unknown MySQL column type: %d" %
                                   (column.type))
@@ -285,7 +324,7 @@ def get_latest_master_log_file(persist_file):
     if(os.path.isfile(persist_file)):
         log_file,log_position = get_master_log_and_postion_from_persist(persist_file)
     else:
-        update_new_master_log_file(persist_file)
+        log_file,log_position = update_new_master_log_file(persist_file)
     return log_file , log_position
 
 
@@ -311,6 +350,7 @@ def update_new_master_log_file(persist_file):
     finally:
         if None != connection:
             connection.close()
+    return log_file,log_position
 
 
 def get_master_log_and_postion_from_persist(persist_file):
