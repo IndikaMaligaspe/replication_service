@@ -14,6 +14,8 @@ import mysql.connector
 import cPickle
 import sys
 import logging
+import sys
+
 
 
 
@@ -29,6 +31,9 @@ RABBITMQ_SETTINGS = {}
 
 logger = logging.getLogger()
 schema_list = {'alienvault':'maticportal'}
+
+
+
 
 def get_configs():
     config_file = sys.argv[1]
@@ -64,7 +69,6 @@ def main():
     user = RABBITMQ_SETTINGS['user']
     password = RABBITMQ_SETTINGS['passwd']
     replicate_queue = RABBITMQ_SETTINGS['queue']
-    print('name / pwd - >%s / %s' %(user,password))
     credentials = pika.PlainCredentials(username=user, password=password)
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=queuehost, port=8080,  virtual_host='/', credentials=credentials))
     channel = connection.channel()
@@ -98,9 +102,9 @@ def build_query(body):
     if consumed['type'] == 'delete':
         query , args = create_delete_query(consumed)
     if consumed['type'] == 'create':
-        query , args = create_query(consumed)
+        query , args = execute_query(consumed)
     if consumed['type'] == 'drop':
-        query , args = create_query(consumed)
+        query , args = execute_query(consumed)
     return query , args
 
 def create_insert_query(consumed):
@@ -166,8 +170,14 @@ def create_delete_query(consumed):
     logger.debug(sql)
     return sql , args
 
-def create_query(consumed):
-    return 'test' , []
+def execute_query(consumed):
+    table = consumed['table']
+    schema = consumed['schema']
+    query = dataset['query']
+    if None <> query:
+        query = change_scehame(schema,schema_list)
+
+    return query , []
 
 
 def write_to_consming_backend(sql , args):
@@ -185,7 +195,7 @@ def write_to_consming_backend(sql , args):
     try:
         cursor = cnx.cursor()
         cursor.execute(sql,args);
-        corsor.commit()
+        cnx.commit()
         cursor.close()
     except mysql.connector.Error as err:
         logger.error(err.message)
@@ -202,4 +212,10 @@ def change_scehame(message,schema_list):
 
 
 if __name__ == "__main__":
-     main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('[x] You have selected to quit the application...')
+        if None <> logging:
+            logging.info('Exiting due to user interuption...')
+        sys.exit(0);
