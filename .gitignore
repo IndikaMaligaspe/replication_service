@@ -1,6 +1,7 @@
 MaticPortal Message Broker Service(1).pdf
 build/
 dist/
+sql/
 example.log
 ansible/inventory.ini
 ansible/inventory.ini
