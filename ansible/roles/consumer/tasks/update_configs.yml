@@ -1,0 +1,35 @@
+---
+  - name: debug message
+    debug: msg="replication_{{run_host}}.yaml"
+
+  - name: Load configs1
+    include_vars:
+      file: "consumer_{{run_host}}.yaml"
+      name: settings
+  - name: Load configs2
+    include_vars:
+      file: "consumer_settings.yaml"
+      name: consumer_settings
+
+  - set_fact:
+      mysql_host: "{{ settings.mysql_slave.host }}"
+      mysql_port: "{{ settings.mysql_slave.port }}"
+      mysql_user: "{{ settings.mysql_slave.user }}"
+      mysql_passwd: "{{ settings.mysql_slave.passwd }}"
+      mysql_database: "{{ settings.mysql_slave.database }}"
+      log4py_path: "{{ settings.logs.log4py.path }}"
+      log4py_level: "{{ settings.logs.log4py.log_level }}"
+      rabbitMQ_host: "{{ settings.rabbitMQ.host }}"
+      rabbitMQ_user: "{{ settings.rabbitMQ.user }}"
+      rabbitMQ_passwd: "{{ settings.rabbitMQ.passwd }}"
+      rabbitMQ_queue: "{{ settings.rabbitMQ.queue }}"
+      config_file_name: "{{ settings.config_file_name }}"
+      home_dir: "{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}"
+  - name: debug message
+    debug: msg="{{log4py_level}}"
+
+  - name: Change consumer.yml settings
+    template:
+        src: consumer_configs.j2
+        dest: "/{{ home_dir }}/{{ config_file_name }}"
+        mode: 0777

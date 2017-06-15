@@ -2,6 +2,8 @@ MaticPortal Message Broker Service(1).pdf
 build/
 dist/
 example.log
+ansible/inventory.ini
+ansible/inventory.ini
 lib/python2.7/site-packages/APScheduler-3.3.1.dist-info/
 lib/python2.7/site-packages/PyYAML-3.12.dist-info/
 lib/python2.7/site-packages/_yaml.so

@@ -1,0 +1,71 @@
+---
+
+  - name: Load vars for replication settings
+    include_vars:
+      file: "consumer_settings.yaml"
+      name: consumer_settings
+
+  - name: Load vars for replication host
+    include_vars:
+      file: "consumer_{{run_host}}.yaml"
+      name: consumer_host
+
+  - set_fact:
+      tar_file_name: "{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}.tar.gz"
+      wheels_file_name: "{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}-py2.py3-none-any.whl"
+
+
+  - name: install python and setup tools
+    apt: name=python2.7  state=present
+    apt: name=python-pip state=present
+
+
+  - name: install virtualenv
+    pip:
+      name: virtualenv
+      state: present
+
+
+  - name: Upload setup.py to folder
+    copy:
+      src: "{{ consumer_settings.local_dist_src }}{{ tar_file_name }}"
+      dest: "/tmp/{{ tar_file_name }}"
+      mode: 775
+
+  - name: Initiate virtualenv and install app
+    unarchive:
+      src: "/tmp/{{ tar_file_name }}"
+      dest: /
+      copy: no
+
+
+  - name: Upload wheels to folder
+    copy:
+      src: "{{ consumer_settings.local_dist_src }}{{ wheels_file_name }}"
+      dest: "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/{{ wheels_file_name }}"
+      mode: 775
+
+
+  # - name: install 3rd party libraries
+  #   pip:
+  #     requirements: "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/requirements.txt"
+  #     virtualenv: "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/venv"
+  #     state: present
+
+  - name: setup MySQL_RabbitMQ_replicator
+    shell:
+      cmd: |
+        cd "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}"
+        sudo source "/venv/bin/activate"
+        sudo python setup.py install
+
+  - name: remove slave replication config file for safety
+    shell:
+      cmd: |
+        sudo rm "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/replication_service/configs/replications.yaml"
+
+  - name: remove slave replication folder for safety
+    shell:
+      cmd: |
+        sudo rm "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/replication_service/replicator" -R
+      # state: absent

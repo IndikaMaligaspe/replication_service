@@ -1,0 +1,17 @@
+---
+  logs:
+    log4py:
+      path: {{ settings.logs.log4py.path }}
+      log_level: {{ settings.logs.log4py.log_level }}
+  mysql_slave:
+    host: {{settings.mysql_slave.host }}
+    port: {{ settings.mysql_slave.port }}
+    user: {{ settings.mysql_slave.user }}
+    passwd: {{ settings.mysql_slave.passwd }}
+    database: {{ settings.mysql_slave.database }}
+  rabbitMQ:
+    host: {{ settings.rabbitMQ.host }}
+    user: {{ settings.rabbitMQ.user }}
+    passwd: {{ settings.rabbitMQ.passwd }}
+    queue: {{ settings.rabbitMQ.queue }}
+  config_file_name: {{ settings.config_file_name }}
