@@ -169,7 +169,7 @@ def start_binlograder(log_position):
                 log_position = stream.log_pos
             logger.info( "Event loop end log position -> %s" %(log_position))
             persist(log_file, log_position,persist_file)
-        sleep(10)
+            sleep(.1)
     stream.close()
     connection.close();
 
