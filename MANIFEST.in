@@ -4,3 +4,4 @@ recursive-include replication_service *.yaml
 include README
 include LICENSE
 include requirements.txt
+include run.sh

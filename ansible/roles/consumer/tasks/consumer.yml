@@ -46,11 +46,11 @@
       mode: 775
 
 
-  # - name: install 3rd party libraries
-  #   pip:
-  #     requirements: "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/requirements.txt"
-  #     virtualenv: "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/venv"
-  #     state: present
+  - name: install 3rd party libraries
+    pip:
+      requirements: "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/requirements.txt"
+      virtualenv: "/{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}/venv"
+      state: present
 
   - name: setup MySQL_RabbitMQ_replicator
     shell:

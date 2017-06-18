@@ -26,9 +26,9 @@
       config_file_name: "{{ settings.config_file_name }}"
       home_dir: "{{ consumer_settings.package_name }}-{{ consumer_settings.replicator_version }}"
   - name: debug message
-    debug: msg="{{log4py_level}}"
+    debug: msg="{{log4py_level}} - {{home_dir}} - {{config_file_name}}"
 
-  - name: Change consumer.yml settings
+  - name: Change consumer.yaml settings
     template:
         src: consumer_configs.j2
         dest: "/{{ home_dir }}/{{ config_file_name }}"

@@ -5,6 +5,7 @@
 
     @author Indika Maligaspe
     @Date 27-May-2017
+    @email: indikamaliigaaaaspe@securmatic.com
 '''
 
 import yaml
@@ -32,7 +33,7 @@ RABBITMQ_SETTINGS = {}
 logger = logging.getLogger()
 schema_list = {'alienvault':'maticportal'}
 
-
+# cnx = None
 
 
 def get_configs():
@@ -65,12 +66,13 @@ def get_configs():
 
 def main():
     get_configs()
+    connect_to_mysql()
     queuehost = RABBITMQ_SETTINGS['host']
     user = RABBITMQ_SETTINGS['user']
     password = RABBITMQ_SETTINGS['passwd']
     replicate_queue = RABBITMQ_SETTINGS['queue']
     credentials = pika.PlainCredentials(username=user, password=password)
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host=queuehost, port=8080,  virtual_host='/', credentials=credentials))
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host=queuehost, port=5672,  virtual_host='/', credentials=credentials))
     channel = connection.channel()
 
     channel.queue_declare(queue=replicate_queue, durable=True)
@@ -79,13 +81,25 @@ def main():
     channel.basic_consume(callback,queue=replicate_queue)
 
     channel.start_consuming()
+def connect_to_mysql():
+    global cnx
+    mysql_user_name = MYSQL_SETTING['user']
+    mysql_password = MYSQL_SETTING['passwd']
+    mysql_host =MYSQL_SETTING['host']
+    mysql_port=MYSQL_SETTING['port']
+    mysql_database=MYSQL_SETTING['database']
+
+    cnx = mysql.connector.connect(user=mysql_user_name, password=mysql_password,
+                              host=mysql_host,
+                              database=mysql_database)
+    return cnx
 
 def callback(ch,method,properties, body):
     if None != body:
         query , args = build_query(body)
         write_to_consming_backend(query , args)
+        # time.sleep(body.count(b'.'))
 
-    time.sleep(body.count(b'.'))
     print("[x] Done")
     ch.basic_ack(delivery_tag = method.delivery_tag)
 
@@ -181,26 +195,18 @@ def execute_query(consumed):
 
 
 def write_to_consming_backend(sql , args):
-    print ("[x] Recieved %s" %args)
-    mysql_user_name = MYSQL_SETTING['user']
-    mysql_password = MYSQL_SETTING['passwd']
-    mysql_host =MYSQL_SETTING['host']
-    mysql_port=MYSQL_SETTING['port']
-    mysql_database=MYSQL_SETTING['database']
+    print ("[x] Recieved message")
 
-    cnx = mysql.connector.connect(user=mysql_user_name, password=mysql_password,
-                              host=mysql_host,
-                              database=mysql_database)
 
     try:
         cursor = cnx.cursor()
         cursor.execute(sql,args);
         cnx.commit()
         cursor.close()
+        print ("[x] updated.")
     except mysql.connector.Error as err:
         logger.error(err.message)
-    finally:
-        cnx.close();
+
 
 def change_scehame(message,schema_list):
     if schema_list == None:
@@ -218,4 +224,6 @@ if __name__ == "__main__":
         print('[x] You have selected to quit the application...')
         if None <> logging:
             logging.info('Exiting due to user interuption...')
+            if cnx <> None:
+                cnx.close()
         sys.exit(0);

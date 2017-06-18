@@ -2,7 +2,7 @@
   logs:
     log4py:
       log_level: DEBUG
-      path: /workspace/securematic/replication_service/log4py.log
+      path: replication_service/log4py.log
   mysql_slave:
     host: 192.168.50.5
     passwd: 123456
@@ -15,4 +15,4 @@
     passwd: test
     user: test
     queue: alienvault_replicate
-  config_file_name: replication_service/configs/consumer.yml
+  config_file_name: replication_service/configs/consumer.yaml
