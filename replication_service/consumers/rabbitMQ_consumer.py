@@ -122,6 +122,7 @@ def build_query(body):
     return query , args
 
 def create_insert_query(consumed):
+    logger.info("Inside Insert Query...")
     table = consumed['table']
     schema = consumed['schema']
     columns = consumed['cols']
@@ -134,11 +135,14 @@ def create_insert_query(consumed):
     sql = ("INSERT INTO `"+change_scehame(schema,schema_list)+"`.`"+table+"` ("+",".join(columns)+") values ("+",".join(column_types)+")")
     for key in columns:
         args.append(values[key])
+
+    logger.debug(args)
     logger.debug(sql)
     return sql , args
 
 
 def create_update_query(consumed):
+    logger.info("Inside Update Query...")
     table = consumed['table']
     schema = consumed['schema']
     columns = consumed['cols']
@@ -164,6 +168,7 @@ def create_update_query(consumed):
     logger.debug(sql)
     return sql , args
 def create_delete_query(consumed):
+    logger.info("Inside Delete Query...")
     table = consumed['table']
     schema = consumed['schema']
     columns = consumed['cols']
@@ -185,18 +190,19 @@ def create_delete_query(consumed):
     return sql , args
 
 def execute_query(consumed):
+    logger.info("Inside Execute Query Query...")
     table = consumed['table']
     schema = consumed['schema']
     query = dataset['query']
     if None <> query:
         query = change_scehame(schema,schema_list)
-
+    logger.info(query)
     return query , []
 
 
 def write_to_consming_backend(sql , args):
     print ("[x] Recieved message")
-
+    logger.info("About to write query....")
 
     try:
         cursor = cnx.cursor()
@@ -204,8 +210,9 @@ def write_to_consming_backend(sql , args):
         cnx.commit()
         cursor.close()
         print ("[x] updated.")
+        logger.info("Inside Query Excution....")
     except mysql.connector.Error as err:
-        logger.error(err.message)
+        logger.error("Inside Query Excution error - %s" %(err.message))
 
 
 def change_scehame(message,schema_list):

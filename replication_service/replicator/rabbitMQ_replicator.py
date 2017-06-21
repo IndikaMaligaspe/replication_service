@@ -85,6 +85,7 @@ def start_binlograder(log_position):
     channel.queue_declare(queue=queue,durable=True)
     while True:
         logger.debug('Log position - %s' %(log_position))
+        logger.debug('Log file - %s' %(log_file))
         stream = BinLogStreamReader(
             connection_settings=MYSQL_SETTING,
             resume_stream=True,
@@ -112,6 +113,7 @@ def start_binlograder(log_position):
                         dataset['type'] = 'create'
                         dataset['query'] = query
                         push_mesage(channel,dataset,queue)
+                        dataset = None
                         log_position = stream.log_pos
                     elif "drop table".upper() in query.upper():
                         logger.debug ('Drop SQL - %s' %(query))
@@ -121,22 +123,34 @@ def start_binlograder(log_position):
                         dataset['type'] = 'drop'
                         dataset['query'] = query
                         push_mesage(channel,dataset,queue)
+                        dataset = None
                         log_position = stream.log_pos
                 elif isinstance(binlogevent,RotateEvent):
                     logger.info("RotateEvent fired... calling update_new_master_log_file...")
-                    update_new_master_log_file(persist_file)
-                    log_file , log_position = get_latest_master_log_file(persist_file)
-                    stream.log_pos = log_position
-                    stream.log_file = log_file
-                    logger.debug('Rotate Event log_pos -> %s' %(log_position))
-                    logger.debug('Rotate Event log_file -> %s' %(log_file))
+                    # update_new_master_log_file(persist_file)
+                    # log_file , log_position = get_latest_master_log_file(persist_file)
+                    # # stream.log_pos = log_position
+                    # # stream.log_file = log_file
+                    # stream.close()
+                    # stream = BinLogStreamReader(
+                    #     connection_settings=MYSQL_SETTING,
+                    #     resume_stream=True,
+                    #     log_file=log_file,
+                    #     server_id=1,
+                    #     blocking = True,
+                    #     log_pos=log_position,
+                    #     only_events=[DeleteRowsEvent, WriteRowsEvent, UpdateRowsEvent,QueryEvent,RotateEvent])
+
+                    logger.debug('Rotate Event log_pos -> %s' %(stream.log_pos))
+                    logger.debug('Rotate Event log_file -> %s' %(stream.log_file))
+                    log_file=stream.log_file
+                    log_position = stream.log_pos
+                    # break
                 else:
                     schema = binlogevent.schema
                     for row in binlogevent.rows:
                             table = binlogevent.table
                             columns = binlogevent.columns
-
-
                             if isinstance(binlogevent,DeleteRowsEvent):
                                 dataset = {}
                                 dataset['table']= table
@@ -146,6 +160,7 @@ def start_binlograder(log_position):
                                 dataset['cols'] = get_columns(columns)
                                 push_mesage(channel,dataset,queue)
                                 log_position = stream.log_pos
+                                dataset = None
                             elif isinstance(binlogevent,UpdateRowsEvent):
                                 dataset = {}
                                 dataset['table']= table
@@ -156,6 +171,7 @@ def start_binlograder(log_position):
                                 dataset['cols'] = get_columns(columns)
                                 push_mesage(channel,dataset,queue)
                                 log_position = stream.log_pos
+                                dataset = None
                             elif isinstance(binlogevent,WriteRowsEvent):
                                 vals = row["values"]
                                 dataset = {}
@@ -166,11 +182,13 @@ def start_binlograder(log_position):
                                 dataset['cols'] = get_columns(columns)
                                 push_mesage(channel,dataset,queue)
                                 log_position = stream.log_pos
+                                dataset = None
                 log_position = stream.log_pos
             logger.info( "Event loop end log position -> %s" %(log_position))
             persist(log_file, log_position,persist_file)
             sleep(.1)
-    stream.close()
+        logger.info( "Closing stream with log position -> %s" %(log_position))
+        stream.close()
     connection.close();
 
 
@@ -340,10 +358,10 @@ def update_new_master_log_file(persist_file):
         cursor.execute("SHOW MASTER STATUS")
         for rows in cursor:
             log_file = rows[0]
-            log_position = 4
+            log_position = long(rows[1])
         cursor.close()
         connection.close()
-        logger.debug('New Persist file -> %s, Log Position -> %d' %(log_file,log_position))
+        logger.debug('New Persist file -> %s, ............ Log Position -> %d' %(log_file,log_position))
         persist(log_file,log_position,persist_file)
     except mysql.connector.errors as mysqlerror:
         logger.error(mysqlerror.message)
@@ -360,7 +378,7 @@ def get_master_log_and_postion_from_persist(persist_file):
         file = open(persist_file, 'r')
         persiste_entries = file.readline().split("|")
         log_file = persiste_entries[0]
-        log_position = int(persiste_entries[1])
+        log_position = long(persiste_entries[1])
         file.close()
     except (IOError,ValueError) as error:
         logger.error('Error opening persist file -> %s ' %(error.message))
@@ -371,7 +389,7 @@ def get_master_log_and_postion_from_persist(persist_file):
 def persist(master_file, log_position,persist_file):
     try:
         file = open(persist_file,'w')
-        file.write('%s|%d' %(master_file, log_position))
+        file.write('%s|%s' %(master_file, log_position))
         # file.write('' %(log_position))
         file.close()
     except IOError as ioError:
