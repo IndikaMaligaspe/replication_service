@@ -39,7 +39,8 @@ MYSQL_SETTING = {
 RABBITMQ_SETTINGS = {}
 
 persist_file = os.getcwd()+'/persist.log'
-logger = logging.getLogger()
+logger = logging.getLogger("rabbitMQ_replicator")
+
 
 
 def main():
@@ -72,7 +73,19 @@ def get_configs():
         elif log4py_log_level == 'ERROR':
             log_level = logging.ERROR
 
-    logging.basicConfig(filename=log4py_file,level=log_level)
+    logger.setLevel(log_level)
+    # create console handler and set level to debug
+    ch = logging.FileHandler(filename=log4py_file)
+    ch.setLevel(log_level)
+    # create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(ch)
+
 
 
 def start_binlograder(log_position):
@@ -184,6 +197,10 @@ def start_binlograder(log_position):
                                 log_position = stream.log_pos
                                 dataset = None
                 log_position = stream.log_pos
+            else:
+                log_file=stream.log_file
+                log_position = stream.log_pos
+
             logger.info( "Event loop end log position -> %s" %(log_position))
             persist(log_file, log_position,persist_file)
             sleep(.1)
