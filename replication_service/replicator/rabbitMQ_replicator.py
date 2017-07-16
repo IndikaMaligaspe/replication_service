@@ -5,11 +5,14 @@
 
 import pika
 import logging
+
 import os
 import yaml
 import sys
 import base64
 import cPickle
+
+from logging.handlers import RotatingFileHandler
 
 from time import sleep
 import mysql.connector
@@ -75,16 +78,16 @@ def get_configs():
 
     logger.setLevel(log_level)
     # create console handler and set level to debug
-    ch = logging.FileHandler(filename=log4py_file)
-    ch.setLevel(log_level)
+    rfh = RotatingFileHandler(filename=log4py_file, mode='a', maxBytes=100*1024*1024,backupCount=2)
+    rfh.setLevel(log_level)
     # create formatter
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     # add formatter to ch
-    ch.setFormatter(formatter)
+    rfh.setFormatter(formatter)
 
     # add ch to logger
-    logger.addHandler(ch)
+    logger.addHandler(rfh)
 
 
 
