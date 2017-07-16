@@ -193,7 +193,7 @@ def execute_query(consumed):
     logger.info("Inside Execute Query Query...")
     table = consumed['table']
     schema = consumed['schema']
-    query = dataset['query']
+    query = consumed['query']
     if None <> query:
         query = change_scehame(schema,schema_list)
     logger.info(query)
