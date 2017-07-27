@@ -212,7 +212,7 @@ def write_to_consming_backend(sql , args):
         print ("[x] updated.")
         logger.info("Inside Query Excution....")
     except mysql.connector.Error as err:
-        logger.error("Inside Query Excution error - %s" %(err.message))
+        logger.error("Inside Query Excution , something went wrong  - {}".format(err))
 
 
 def change_scehame(message,schema_list):
